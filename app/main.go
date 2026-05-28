@@ -18,9 +18,11 @@ var builtins = map[string]bool{
 	"type": true,
 }
 
+var pathExecutables map[string]string
+
 func main() {
 	// get all executables from the PATH environment variable
-	pathExecutables := getPathExecutables(os.Getenv("PATH"))
+	pathExecutables = getPathExecutables(os.Getenv("PATH"))
 
 	for {
 		fmt.Print("$ ")
@@ -43,15 +45,11 @@ func main() {
 		case "exit":
 			return
 		case "echo":
-			fmt.Println(args)
+			echoCommand(args)
 		case "type":
-			if _, exists := builtins[args]; exists {
-				fmt.Printf("%s is a shell builtin\n", args)
-			} else if path, exists := pathExecutables[args]; exists {
-				fmt.Printf("%s is %s\n", args, path)
-			} else {
-				fmt.Printf("%s: not found\n", args)
-			}
+			typeCommand(args)
+		case "pwd":
+			pwdCommand()
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
 				cmd := exec.Command(cmd, strings.Split(args, " ")...)
@@ -63,6 +61,30 @@ func main() {
 			}
 		}
 	}
+}
+
+func echoCommand(args string) {
+	fmt.Println(args)
+}
+
+func typeCommand(args string) {
+	if _, exists := builtins[args]; exists {
+		fmt.Printf("%s is a shell builtin\n", args)
+	} else if path, exists := pathExecutables[args]; exists {
+		fmt.Printf("%s is %s\n", args, path)
+	} else {
+		fmt.Printf("%s: not found\n", args)
+	}
+}
+
+func pwdCommand() {
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error getting current directory:", err)
+		return
+	}
+
+	fmt.Println(dir)
 }
 
 func getPathExecutables(path string) map[string]string {
