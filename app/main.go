@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ var builtins = map[string]bool{
 }
 
 func main() {
+	pathExecutables := getPathExecutables(os.Getenv("PATH"))
 	for {
 		fmt.Print("$ ")
 
@@ -39,6 +41,8 @@ func main() {
 		case "type":
 			if _, exists := builtins[args]; exists {
 				fmt.Printf("%s is a shell builtin\n", args)
+			} else if path, exists := pathExecutables[args]; exists {
+				fmt.Printf("%s is %s\n", args, path)
 			} else {
 				fmt.Printf("%s: not found\n", args)
 			}
@@ -46,4 +50,39 @@ func main() {
 			fmt.Printf("%s: command not found\n", cmd)
 		}
 	}
+}
+
+func getPathExecutables(path string) map[string]string {
+	var pathExecutables map[string]string
+
+	paths := strings.SplitSeq(path, string(os.PathListSeparator))
+	for path := range paths {
+		if len(path) == 0 {
+			continue
+		}
+
+		currDir, err := os.ReadDir(path)
+		if err != nil {
+			continue
+		}
+
+		for _, file := range currDir {
+			if file.IsDir() {
+				continue
+			}
+
+			fullPath := filepath.Join(path, file.Name())
+			info, err := os.Stat(fullPath)
+			if err != nil {
+				continue
+			}
+
+			if info.Mode().Perm()&0111 != 0 {
+				fmt.Println("Executable found:", file.Name(), "at", fullPath)
+				pathExecutables[file.Name()] = path
+			}
+		}
+	}
+
+	return pathExecutables
 }
