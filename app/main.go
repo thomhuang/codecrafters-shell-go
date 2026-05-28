@@ -40,7 +40,7 @@ func main() {
 			if _, exists := builtins[args]; exists {
 				fmt.Printf("%s is a shell builtin\n", args)
 			} else {
-				fmt.Printf("%s: command not found\n", args)
+				fmt.Printf("%s: not found\n", args)
 			}
 		default:
 			fmt.Printf("%s: command not found\n", cmd)
