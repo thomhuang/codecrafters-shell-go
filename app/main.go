@@ -53,7 +53,7 @@ func main() {
 }
 
 func getPathExecutables(path string) map[string]string {
-	var pathExecutables map[string]string
+	pathExecutables := make(map[string]string)
 
 	paths := strings.SplitSeq(path, string(os.PathListSeparator))
 	for path := range paths {
