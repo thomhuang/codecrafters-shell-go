@@ -78,7 +78,7 @@ func getPathExecutables(path string) map[string]string {
 			}
 
 			if info.Mode().Perm()&0111 != 0 {
-				pathExecutables[file.Name()] = path
+				pathExecutables[file.Name()] = fullPath
 			}
 		}
 	}
