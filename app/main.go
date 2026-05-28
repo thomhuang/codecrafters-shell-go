@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+var builtins = map[string]bool{
+	"exit": true,
+	"echo": true,
+}
+
 func main() {
 	for {
 		fmt.Print("$ ")
@@ -18,7 +23,8 @@ func main() {
 			break
 		}
 
-		parts := strings.SplitN(strings.TrimRight(userInput, "\r\n"), " ", 2)
+		userInput = strings.TrimRight(userInput, "\r\n")
+		parts := strings.SplitN(userInput, " ", 2)
 		cmd, args := parts[0], ""
 		if len(parts) > 1 {
 			args = parts[1]
@@ -29,6 +35,12 @@ func main() {
 			return
 		case "echo":
 			fmt.Println(args)
+		case "type":
+			if _, exists := builtins[args]; exists {
+				fmt.Printf("%s is a shell builtin\n", args)
+				break
+			}
+			fallthrough
 		default:
 			fmt.Printf("%s: command not found\n", cmd)
 		}
