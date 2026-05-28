@@ -54,7 +54,7 @@ func main() {
 			}
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
-				cmd := exec.Command(cmd, args)
+				cmd := exec.Command(cmd, strings.Split(args, " ")...)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Run()
