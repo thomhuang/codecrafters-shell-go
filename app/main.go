@@ -16,6 +16,7 @@ var builtins = map[string]bool{
 	"exit": true,
 	"echo": true,
 	"type": true,
+	"pwd":  true,
 }
 
 var pathExecutables map[string]string
