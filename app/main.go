@@ -4,10 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 )
 
+// builtins is a map of shell built-in commands for quick lookup
 var builtins = map[string]bool{
 	"exit": true,
 	"echo": true,
@@ -15,7 +19,9 @@ var builtins = map[string]bool{
 }
 
 func main() {
+	// get all executables from the PATH environment variable
 	pathExecutables := getPathExecutables(os.Getenv("PATH"))
+
 	for {
 		fmt.Print("$ ")
 
@@ -47,7 +53,14 @@ func main() {
 				fmt.Printf("%s: not found\n", args)
 			}
 		default:
-			fmt.Printf("%s: command not found\n", cmd)
+			if _, exists := pathExecutables[cmd]; exists {
+				cmd := exec.Command(cmd, args)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Run()
+			} else {
+				fmt.Printf("%s: command not found\n", cmd)
+			}
 		}
 	}
 }
@@ -55,7 +68,9 @@ func main() {
 func getPathExecutables(path string) map[string]string {
 	pathExecutables := make(map[string]string)
 
+	// take in path environment variable and split it into directories
 	paths := strings.SplitSeq(path, string(os.PathListSeparator))
+	// for each path, walk through the directory for each file
 	for path := range paths {
 		if len(path) == 0 {
 			continue
@@ -66,6 +81,7 @@ func getPathExecutables(path string) map[string]string {
 			continue
 		}
 
+		// for each file, check if it is executable and add it to the path executable map
 		for _, file := range currDir {
 			if file.IsDir() {
 				continue
@@ -77,11 +93,23 @@ func getPathExecutables(path string) map[string]string {
 				continue
 			}
 
-			if info.Mode().Perm()&0111 != 0 {
+			if runtime.GOOS == "windows" && isExecutable(fullPath) { // windows doesn't use POSIX permission bits, so we have to check the file extension instead
+				pathExecutables[strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))] = strings.TrimSuffix(fullPath, filepath.Ext(fullPath))
+			} else if info.Mode().Perm()&0111 != 0 { // check if file permissions indicate executable
 				pathExecutables[file.Name()] = fullPath
 			}
 		}
 	}
 
 	return pathExecutables
+}
+
+func isExecutable(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	pathext := os.Getenv("PATHEXT")
+	if pathext == "" {
+		pathext = ".COM;.EXE;.BAT;.CMD"
+	}
+
+	return slices.Contains(strings.Split(strings.ToLower(pathext), ";"), ext)
 }
