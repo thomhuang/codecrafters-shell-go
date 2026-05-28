@@ -39,9 +39,9 @@ func main() {
 		case "type":
 			if _, exists := builtins[args]; exists {
 				fmt.Printf("%s is a shell builtin\n", args)
-				break
+			} else {
+				fmt.Printf("%s: command not found\n", args)
 			}
-			fallthrough
 		default:
 			fmt.Printf("%s: command not found\n", cmd)
 		}
