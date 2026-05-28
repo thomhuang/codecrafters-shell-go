@@ -19,6 +19,10 @@ func main() {
 		}
 
 		command = strings.TrimRight(command, "\r\n")
+		if command == "exit" {
+			break
+		}
+
 		fmt.Printf("%s: command not found\n", command)
 	}
 }
