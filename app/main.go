@@ -78,7 +78,6 @@ func getPathExecutables(path string) map[string]string {
 			}
 
 			if info.Mode().Perm()&0111 != 0 {
-				fmt.Println("Executable found:", file.Name(), "at", fullPath)
 				pathExecutables[file.Name()] = path
 			}
 		}
