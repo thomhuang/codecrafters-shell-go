@@ -10,6 +10,7 @@ import (
 var builtins = map[string]bool{
 	"exit": true,
 	"echo": true,
+	"type": true,
 }
 
 func main() {
