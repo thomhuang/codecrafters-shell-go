@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
-	"slices"
 	"strings"
 )
 
@@ -21,6 +18,33 @@ var builtins = map[string]bool{
 }
 
 var pathExecutables map[string]string
+
+func parseUserInput(input string) string {
+	var res strings.Builder
+
+	var currWord strings.Builder
+	inQuotes := false
+	for _, c := range input {
+		switch {
+		case c == '\'': // whenever we encounter a single quote, we toggle whether we're within quotes or not
+			inQuotes = !inQuotes
+		case c == ' ' && !inQuotes: // if we encounter a space and we're not within quotes, we treat it as a separator between the command and its arguments
+			if currWord.Len() > 0 {
+				res.WriteString(currWord.String())
+				res.WriteRune(' ')
+				currWord.Reset()
+			}
+		default:
+			currWord.WriteRune(c)
+		}
+	}
+
+	if currWord.Len() > 0 { // get last "part" of the input if it exists
+		res.WriteString(currWord.String())
+	}
+
+	return res.String()
+}
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -36,8 +60,11 @@ func main() {
 			break
 		}
 
-		userInput = strings.TrimRight(userInput, "\r\n")
-		parts := strings.SplitN(userInput, " ", 2)
+		var parts []string
+
+		userInput = parseUserInput(strings.TrimSpace(userInput))
+
+		parts = strings.SplitN(userInput, " ", 2)
 		cmd, args := parts[0], ""
 		if len(parts) > 1 {
 			args = parts[1]
@@ -65,89 +92,4 @@ func main() {
 			}
 		}
 	}
-}
-
-func echoCommand(args string) {
-	fmt.Println(args)
-}
-
-func typeCommand(args string) {
-	if _, exists := builtins[args]; exists {
-		fmt.Printf("%s is a shell builtin\n", args)
-	} else if path, exists := pathExecutables[args]; exists {
-		fmt.Printf("%s is %s\n", args, path)
-	} else {
-		fmt.Printf("%s: not found\n", args)
-	}
-}
-
-func pwdCommand() {
-	dir, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Error getting current directory:", err)
-		return
-	}
-
-	fmt.Println(dir)
-}
-
-func cdCommand(path string) {
-	if path == "~" {
-		homeDir, _ := os.UserHomeDir()
-		path = homeDir
-	}
-
-	err := os.Chdir(path)
-	if err != nil {
-		fmt.Printf("cd: %s: No such file or directory\n", path)
-	}
-}
-
-func getPathExecutables(path string) map[string]string {
-	pathExecutables := make(map[string]string)
-
-	// take in path environment variable and split it into directories
-	paths := strings.SplitSeq(path, string(os.PathListSeparator))
-	// for each path, walk through the directory for each file
-	for path := range paths {
-		if len(path) == 0 {
-			continue
-		}
-
-		currDir, err := os.ReadDir(path)
-		if err != nil {
-			continue
-		}
-
-		// for each file, check if it is executable and add it to the path executable map
-		for _, file := range currDir {
-			if file.IsDir() {
-				continue
-			}
-
-			fullPath := filepath.Join(path, file.Name())
-			info, err := os.Stat(fullPath)
-			if err != nil {
-				continue
-			}
-
-			if runtime.GOOS == "windows" && isExecutable(fullPath) { // windows doesn't use POSIX permission bits, so we have to check the file extension instead
-				pathExecutables[strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))] = strings.TrimSuffix(fullPath, filepath.Ext(fullPath))
-			} else if info.Mode().Perm()&0111 != 0 { // check if file permissions indicate executable
-				pathExecutables[file.Name()] = fullPath
-			}
-		}
-	}
-
-	return pathExecutables
-}
-
-func isExecutable(path string) bool {
-	ext := strings.ToLower(filepath.Ext(path))
-	pathext := os.Getenv("PATHEXT")
-	if pathext == "" {
-		pathext = ".COM;.EXE;.BAT;.CMD"
-	}
-
-	return slices.Contains(strings.Split(strings.ToLower(pathext), ";"), ext)
 }
