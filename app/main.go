@@ -17,18 +17,19 @@ var builtins = map[string]bool{
 	"echo": true,
 	"type": true,
 	"pwd":  true,
+	"cd":   true,
 }
 
 var pathExecutables map[string]string
 
 func main() {
+	reader := bufio.NewReader(os.Stdin)
+
 	// get all executables from the PATH environment variable
 	pathExecutables = getPathExecutables(os.Getenv("PATH"))
-
 	for {
 		fmt.Print("$ ")
 
-		reader := bufio.NewReader(os.Stdin)
 		userInput, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading input:", err)
@@ -51,6 +52,8 @@ func main() {
 			typeCommand(args)
 		case "pwd":
 			pwdCommand()
+		case "cd":
+			cdCommand(args)
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
 				cmd := exec.Command(cmd, strings.Split(args, " ")...)
@@ -86,6 +89,13 @@ func pwdCommand() {
 	}
 
 	fmt.Println(dir)
+}
+
+func cdCommand(path string) {
+	err := os.Chdir(path)
+	if err != nil {
+		fmt.Printf("cd: %s: No such file or directory\n", path)
+	}
 }
 
 func getPathExecutables(path string) map[string]string {
