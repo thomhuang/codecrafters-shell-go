@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const HOME_PATH = "~"
+
 func echoCommand(args []string) (output, errorMessage string) {
 	return strings.Join(args, " "), ""
 }
@@ -36,7 +38,7 @@ func pwdCommand() (output, errorMessage string) {
 
 func cdCommand(args []string) (output, errorMessage string) {
 	path := strings.Join(args, " ")
-	if path == "~" {
+	if path == HOME_PATH {
 		homeDir, _ := os.UserHomeDir()
 		path = homeDir
 	}

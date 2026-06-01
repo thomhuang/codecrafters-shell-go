@@ -39,13 +39,19 @@ func main() {
 		args := parts[1:]
 
 		// Extract redirect operators from args
-		args, stdoutRedirect := extractRedirects(args)
+		args, redirectInfo := extractRedirects(args)
 
 		// Determine where stdout goes
 		stdout := os.Stdout
-		if stdoutRedirect != nil {
-			stdout = stdoutRedirect
-			defer stdoutRedirect.Close()
+		stderr := os.Stderr
+		if redirectInfo != nil {
+			switch redirectInfo.Type {
+			case STDOUT:
+				stdout = redirectInfo.File
+			case STDERR:
+				stderr = redirectInfo.File
+			}
+			defer redirectInfo.File.Close()
 		}
 
 		switch cmd {
@@ -69,15 +75,15 @@ func main() {
 			if _, exists := pathExecutables[cmd]; exists {
 				c := exec.Command(cmd, args...)
 				c.Stdout = stdout
-				c.Stderr = os.Stderr
+				c.Stderr = stderr
 				c.Run()
 			} else {
 				fmt.Fprintf(os.Stderr, "%s: command not found\n", cmd)
 			}
 		}
 
-		if stdoutRedirect != nil {
-			stdoutRedirect.Close()
+		if redirectInfo != nil {
+			redirectInfo.File.Close()
 		}
 	}
 }

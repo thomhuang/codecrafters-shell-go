@@ -17,6 +17,18 @@ var specialCharacters = map[rune]bool{
 const SINGLE_QUOTE = '\''
 const DOUBLE_QUOTE = '"'
 
+type RedirectType int
+
+const (
+	STDOUT RedirectType = iota
+	STDERR
+)
+
+type Redirect struct {
+	File *os.File
+	Type RedirectType
+}
+
 func parseUserInput(input string) []string {
 	var parts []string
 
@@ -70,16 +82,25 @@ func parseUserInput(input string) []string {
 	return parts
 }
 
-func extractRedirects(args []string) ([]string, *os.File) {
+func extractRedirects(args []string) ([]string, *Redirect) {
 	var redirectFile *os.File
 	var cleanArgs []string
+	var redirectType RedirectType
 	for i := 0; i < len(args); i++ {
 		var fileFlags int
 		switch args[i] {
 		case ">", "1>":
 			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+			redirectType = STDOUT
 		case ">>", "1>>":
 			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+			redirectType = STDOUT
+		case "2>":
+			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+			redirectType = STDERR
+		case "2>>":
+			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+			redirectType = STDERR
 		default:
 			cleanArgs = append(cleanArgs, args[i])
 			continue
@@ -94,5 +115,5 @@ func extractRedirects(args []string) ([]string, *os.File) {
 		redirectFile, _ = os.OpenFile(args[i], fileFlags, 0644)
 	}
 
-	return cleanArgs, redirectFile
+	return cleanArgs, &Redirect{File: redirectFile, Type: redirectType}
 }
