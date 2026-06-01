@@ -6,12 +6,15 @@ func parseUserInput(input string) []string {
 	var parts []string
 
 	var currWord strings.Builder
-	inQuotes := false
+	inSingleQuotes := false
+	inDoubleQuotes := false
 	for _, c := range input {
 		switch {
-		case c == '\'': // toggle whether we're within quotes or not
-			inQuotes = !inQuotes
-		case c == ' ' && !inQuotes: // if we encounter a space and we're not within quotes, we treat it as a separator between the command and its arguments
+		case c == '"': // whenever we encounter a double quote, we toggle whether we're within quotes or not
+			inDoubleQuotes = !inDoubleQuotes
+		case c == '\'' && !inDoubleQuotes: // toggle whether we're within quotes or not
+			inSingleQuotes = !inSingleQuotes
+		case c == ' ' && !inSingleQuotes && !inDoubleQuotes: // if we encounter a space and we're not within quotes, we treat it as a separator between the command and its arguments
 			if currWord.Len() > 0 {
 				parts = append(parts, currWord.String())
 				currWord.Reset()
