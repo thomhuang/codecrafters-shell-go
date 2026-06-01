@@ -81,10 +81,6 @@ func main() {
 				printResult(stdout, stderr, "", fmt.Sprintf("%s: command not found", cmd))
 			}
 		}
-
-		if redirectInfo != nil {
-			redirectInfo.File.Close()
-		}
 	}
 }
 

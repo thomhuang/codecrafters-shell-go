@@ -112,7 +112,12 @@ func extractRedirects(args []string) ([]string, *Redirect) {
 		}
 
 		i++
-		redirectFile, _ = os.OpenFile(args[i], fileFlags, 0644)
+		file, err := os.OpenFile(args[i], fileFlags, 0644)
+		if err != nil {
+			panic(err)
+		}
+
+		redirectFile = file
 	}
 
 	return cleanArgs, &Redirect{File: redirectFile, Type: redirectType}
