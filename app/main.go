@@ -69,7 +69,7 @@ func main() {
 		case "cd":
 			_, errMsg := cdCommand(args)
 			if errMsg != "" {
-				fmt.Fprintln(stderr, errMsg)
+				printResult(stdout, stderr, "", errMsg)
 			}
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
@@ -78,7 +78,7 @@ func main() {
 				c.Stderr = stderr
 				c.Run()
 			} else {
-				fmt.Fprintf(os.Stderr, "%s: command not found\n", cmd)
+				printResult(stdout, stderr, "", fmt.Sprintf("%s: command not found", cmd))
 			}
 		}
 
