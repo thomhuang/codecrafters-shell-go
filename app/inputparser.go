@@ -28,18 +28,18 @@ func parseUserInput(input string) []string {
 					if specialCharacters[next] {
 						currPart.WriteRune(next)
 					} else {
-						currPart.WriteRune('\\')
+						currPart.WriteRune(c)
 						currPart.WriteRune(next)
 					}
 				case 0:
 					currPart.WriteRune(next)
 				default:
-					currPart.WriteRune('\\')
+					currPart.WriteRune(c)
 					currPart.WriteRune(next)
 				}
 				i++ // skip the escaped character
 			} else {
-				currPart.WriteRune('\\')
+				currPart.WriteRune(c)
 			}
 		case quoteChar == 0 && (c == '"' || c == '\''): // whenever we encounter a double quote, we toggle whether we're within quotes or not
 			quoteChar = c
