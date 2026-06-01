@@ -59,17 +59,17 @@ func main() {
 			return
 		case "echo":
 			output, errMsg := echoCommand(args)
-			printResult(stdout, output, errMsg)
+			printResult(stdout, stderr, output, errMsg)
 		case "type":
 			output, errMsg := typeCommand(args)
-			printResult(stdout, output, errMsg)
+			printResult(stdout, stderr, output, errMsg)
 		case "pwd":
 			output, errMsg := pwdCommand()
-			printResult(stdout, output, errMsg)
+			printResult(stdout, stderr, output, errMsg)
 		case "cd":
 			_, errMsg := cdCommand(args)
 			if errMsg != "" {
-				fmt.Fprintln(os.Stderr, errMsg)
+				fmt.Fprintln(stderr, errMsg)
 			}
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
@@ -88,9 +88,9 @@ func main() {
 	}
 }
 
-func printResult(stdout *os.File, output, errMsg string) {
+func printResult(stdout *os.File, stderr *os.File, output, errMsg string) {
 	if errMsg != "" {
-		fmt.Fprintln(os.Stderr, errMsg)
+		fmt.Fprintln(stderr, errMsg)
 	} else if output != "" {
 		fmt.Fprintln(stdout, output)
 	}
