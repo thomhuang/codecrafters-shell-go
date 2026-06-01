@@ -120,5 +120,9 @@ func extractRedirects(args []string) ([]string, *Redirect) {
 		redirectFile = file
 	}
 
+	if redirectFile == nil {
+		return cleanArgs, nil
+	}
+
 	return cleanArgs, &Redirect{File: redirectFile, Type: redirectType}
 }

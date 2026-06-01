@@ -51,7 +51,6 @@ func main() {
 			case STDERR:
 				stderr = redirectInfo.File
 			}
-			defer redirectInfo.File.Close()
 		}
 
 		switch cmd {
@@ -80,6 +79,10 @@ func main() {
 			} else {
 				printResult(stdout, stderr, "", fmt.Sprintf("%s: command not found", cmd))
 			}
+		}
+
+		if redirectInfo != nil {
+			redirectInfo.File.Close()
 		}
 	}
 }
