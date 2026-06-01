@@ -11,6 +11,9 @@ var specialCharacters = map[rune]bool{
 	'\n': true,
 }
 
+const SINGLE_QUOTE = '\''
+const DOUBLE_QUOTE = '"'
+
 func parseUserInput(input string) []string {
 	var parts []string
 
@@ -20,11 +23,11 @@ func parseUserInput(input string) []string {
 		c := rune(input[i])
 
 		switch {
-		case c == '\\': // if we encounter a backslash, we skip the next character and add it to the current word
+		case c == '\\' && quoteChar != SINGLE_QUOTE: // backslash is only special outside single quotes
 			if i+1 < len(input) {
 				next := rune(input[i+1])
 				switch quoteChar {
-				case '"':
+				case DOUBLE_QUOTE:
 					if specialCharacters[next] {
 						currPart.WriteRune(next)
 					} else {
@@ -41,7 +44,7 @@ func parseUserInput(input string) []string {
 			} else {
 				currPart.WriteRune(c)
 			}
-		case quoteChar == 0 && (c == '"' || c == '\''): // whenever we encounter a double quote, we toggle whether we're within quotes or not
+		case quoteChar == 0 && (c == DOUBLE_QUOTE || c == SINGLE_QUOTE): // whenever we encounter a double quote, we toggle whether we're within quotes or not
 			quoteChar = c
 		case c == quoteChar:
 			quoteChar = 0
