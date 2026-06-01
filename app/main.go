@@ -1,32 +1,36 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/chzyer/readline"
 )
 
-var builtins = map[string]bool{
-	"exit": true,
-	"echo": true,
-	"type": true,
-	"pwd":  true,
-	"cd":   true,
-}
-
-var pathExecutables map[string]string
-
 func main() {
-	reader := bufio.NewReader(os.Stdin)
 	pathExecutables = getPathExecutables(os.Getenv("PATH"))
+	autoCompleteTrie = buildCompletionTrie()
+
+	// use readline package to make our shell be in raw mode, which allows us to read user input one key at a time and handle special keys like tab-autocomplete, backspace and Ctrl-C.
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt:          "$ ",
+		AutoComplete:    &commandAutoComplete{trie: autoCompleteTrie},
+		InterruptPrompt: "^C",
+		EOFPrompt:       "exit",
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer rl.Close()
 
 	for {
-		fmt.Print("$ ")
-
-		userInput, err := reader.ReadString('\n')
-		if err != nil {
+		userInput, err := rl.Readline()
+		if err == readline.ErrInterrupt { // Ctrl-C: drop the line, new prompt
+			continue
+		} else if err == io.EOF { // Ctrl-D
 			break
 		}
 
@@ -45,11 +49,11 @@ func main() {
 		stdout := os.Stdout
 		stderr := os.Stderr
 		if redirectInfo != nil {
-			switch redirectInfo.Type {
+			switch redirectInfo.typ {
 			case STDOUT:
-				stdout = redirectInfo.File
+				stdout = redirectInfo.file
 			case STDERR:
-				stderr = redirectInfo.File
+				stderr = redirectInfo.file
 			}
 		}
 
@@ -82,7 +86,7 @@ func main() {
 		}
 
 		if redirectInfo != nil {
-			redirectInfo.File.Close()
+			redirectInfo.file.Close()
 		}
 	}
 }
