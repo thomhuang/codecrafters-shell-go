@@ -35,13 +35,13 @@ func main() {
 
 		var parts []string
 
-		userInput = parseUserInput(strings.TrimSpace(userInput))
+		parts = parseUserInput(strings.TrimSpace(userInput))
 
-		parts = strings.SplitN(userInput, " ", 2)
-		cmd, args := parts[0], ""
-		if len(parts) > 1 {
-			args = parts[1]
+		if len(parts) == 0 {
+			continue
 		}
+		cmd := parts[0]
+		args := parts[1:]
 
 		switch cmd {
 		case "exit":
@@ -56,7 +56,7 @@ func main() {
 			cdCommand(args)
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
-				cmd := exec.Command(cmd, strings.Split(args, " ")...)
+				cmd := exec.Command(cmd, args...)
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Run()

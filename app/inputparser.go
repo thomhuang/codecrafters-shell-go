@@ -2,8 +2,8 @@ package main
 
 import "strings"
 
-func parseUserInput(input string) string {
-	var res strings.Builder
+func parseUserInput(input string) []string {
+	var parts []string
 
 	var currWord strings.Builder
 	inQuotes := false
@@ -13,18 +13,17 @@ func parseUserInput(input string) string {
 			inQuotes = !inQuotes
 		case c == ' ' && !inQuotes: // if we encounter a space and we're not within quotes, we treat it as a separator between the command and its arguments
 			if currWord.Len() > 0 {
-				res.WriteString(currWord.String())
-				res.WriteRune(' ')
-				currWord.Reset() // if we run into repeated spaces, we don't want to add extra spaces to the result
+				parts = append(parts, currWord.String())
+				currWord.Reset()
 			}
 		default:
 			currWord.WriteRune(c)
 		}
 	}
 
-	if currWord.Len() > 0 { // get last "part" of the input if it exists
-		res.WriteString(currWord.String())
+	if currWord.Len() > 0 {
+		parts = append(parts, currWord.String())
 	}
 
-	return res.String()
+	return parts
 }

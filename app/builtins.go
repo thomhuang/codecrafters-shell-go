@@ -9,17 +9,19 @@ import (
 	"strings"
 )
 
-func echoCommand(args string) {
-	fmt.Println(args)
+func echoCommand(args []string) {
+	fmt.Println(strings.Join(args, " "))
 }
 
-func typeCommand(args string) {
-	if _, exists := builtins[args]; exists {
-		fmt.Printf("%s is a shell builtin\n", args)
-	} else if path, exists := pathExecutables[args]; exists {
-		fmt.Printf("%s is %s\n", args, path)
+func typeCommand(args []string) {
+	arg := strings.Join(args, " ")
+
+	if _, exists := builtins[arg]; exists {
+		fmt.Printf("%s is a shell builtin\n", arg)
+	} else if path, exists := pathExecutables[arg]; exists {
+		fmt.Printf("%s is %s\n", arg, path)
 	} else {
-		fmt.Printf("%s: not found\n", args)
+		fmt.Printf("%s: not found\n", arg)
 	}
 }
 
@@ -33,7 +35,8 @@ func pwdCommand() {
 	fmt.Println(dir)
 }
 
-func cdCommand(path string) {
+func cdCommand(args []string) {
+	path := strings.Join(args, " ")
 	if path == "~" {
 		homeDir, _ := os.UserHomeDir()
 		path = homeDir
