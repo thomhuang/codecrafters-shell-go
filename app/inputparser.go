@@ -1,6 +1,9 @@
 package main
 
-import "strings"
+import (
+	"os"
+	"strings"
+)
 
 var specialCharacters = map[rune]bool{
 	'\\': true,
@@ -65,4 +68,31 @@ func parseUserInput(input string) []string {
 	}
 
 	return parts
+}
+
+func extractRedirects(args []string) ([]string, *os.File) {
+	var redirectFile *os.File
+	var cleanArgs []string
+	for i := 0; i < len(args); i++ {
+		var fileFlags int
+		switch args[i] {
+		case ">", "1>":
+			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+		case ">>", "1>>":
+			fileFlags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+		default:
+			cleanArgs = append(cleanArgs, args[i])
+			continue
+		}
+
+		if i+1 >= len(args) {
+			cleanArgs = append(cleanArgs, args[i])
+			continue
+		}
+
+		i++
+		redirectFile, _ = os.OpenFile(args[i], fileFlags, 0644)
+	}
+
+	return cleanArgs, redirectFile
 }

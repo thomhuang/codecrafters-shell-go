@@ -9,33 +9,32 @@ import (
 	"strings"
 )
 
-func echoCommand(args []string) {
-	fmt.Println(strings.Join(args, " "))
+func echoCommand(args []string) (output, errorMessage string) {
+	return strings.Join(args, " "), ""
 }
 
-func typeCommand(args []string) {
+func typeCommand(args []string) (output, errorMessage string) {
 	arg := strings.Join(args, " ")
 
 	if _, exists := builtins[arg]; exists {
-		fmt.Printf("%s is a shell builtin\n", arg)
+		return fmt.Sprintf("%s is a shell builtin", arg), ""
 	} else if path, exists := pathExecutables[arg]; exists {
-		fmt.Printf("%s is %s\n", arg, path)
+		return fmt.Sprintf("%s is %s", arg, path), ""
 	} else {
-		fmt.Printf("%s: not found\n", arg)
+		return "", fmt.Sprintf("%s: not found", arg)
 	}
 }
 
-func pwdCommand() {
+func pwdCommand() (output, errorMessage string) {
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Println("Error getting current directory:", err)
-		return
+		return "", fmt.Sprintf("Error getting current directory: %v", err)
 	}
 
-	fmt.Println(dir)
+	return dir, ""
 }
 
-func cdCommand(args []string) {
+func cdCommand(args []string) (output, errorMessage string) {
 	path := strings.Join(args, " ")
 	if path == "~" {
 		homeDir, _ := os.UserHomeDir()
@@ -44,8 +43,10 @@ func cdCommand(args []string) {
 
 	err := os.Chdir(path)
 	if err != nil {
-		fmt.Printf("cd: %s: No such file or directory\n", path)
+		return "", fmt.Sprintf("cd: %s: No such file or directory", path)
 	}
+
+	return "", ""
 }
 
 func getPathExecutables(path string) map[string]string {
