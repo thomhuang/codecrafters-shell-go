@@ -13,9 +13,6 @@ import (
 // ErrInterrupt is returned by ReadLine when the user presses Ctrl-C.
 var ErrInterrupt = errors.New("interrupt")
 
-// LineEditor reads a line of input in raw mode, handling echo, backspace, and
-// tab-completion ourselves. The cursor always sits at the end of the line
-// (no mid-line editing yet), which keeps redraw logic to a minimum.
 type LineEditor struct {
 	fd     int
 	in     *bufio.Reader
@@ -33,12 +30,8 @@ func NewLineEditor(prompt string) *LineEditor {
 }
 
 // ReadLine reads one line. It puts the terminal in raw mode for the duration of
-// the line and restores it before returning, so any command we then run sees a
-// normal (cooked) terminal. If stdin isn't a terminal (piped input), it falls
-// back to plain line reading with no key handling.
+// the line and restores it before returning
 func (e *LineEditor) ReadLine() (string, error) {
-	// term.MakeRaw is the one cross-platform primitive we lean on; it hides the
-	// Unix termios / Windows console-mode differences behind a single API.
 	state, err := term.MakeRaw(e.fd)
 	if err != nil {
 		return e.readLineCooked() // not a terminal (e.g. piped input)
@@ -78,11 +71,11 @@ func (e *LineEditor) ReadLine() (string, error) {
 		case r == 127 || r == 8: // Backspace / DEL
 			if len(line) > 0 {
 				line = line[:len(line)-1]
-				e.write("\b \b") // erase the last glyph
+				e.write("\b \b") // erase the last rune
 			}
 			tabCount = 0
 
-		case r == '\t': // Tab → completion
+		case r == '\t': // tab autocomplete
 			line, tabCount = e.complete(line, tabCount)
 
 		case r == 27: // ESC: swallow arrow keys etc. so they don't corrupt the line
@@ -116,6 +109,7 @@ func (e *LineEditor) complete(line []rune, tabCount int) ([]rune, int) {
 	case 0:
 		// No matches: discard the input and start fresh on a new line.
 		e.write("\r\n")
+		e.bell()
 		e.write(e.prompt)
 		return nil, 0
 
