@@ -6,31 +6,24 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-
-	"github.com/chzyer/readline"
 )
 
 func main() {
 	pathExecutables = getPathExecutables(os.Getenv("PATH"))
 	autoCompleteTrie = buildCompletionTrie()
 
-	// use readline package to make our shell be in raw mode, which allows us to read user input one key at a time and handle special keys like tab-autocomplete, backspace and Ctrl-C.
-	rl, err := readline.NewEx(&readline.Config{
-		Prompt:          "$ ",
-		AutoComplete:    &commandAutoComplete{trie: autoCompleteTrie},
-		InterruptPrompt: "^C",
-		EOFPrompt:       "exit",
-	})
-	if err != nil {
-		panic(err)
-	}
-	defer rl.Close()
+	// Our own raw-mode line editor (replaces the readline package): it reads
+	// input one key at a time so we can handle tab-completion, backspace, and
+	// Ctrl-C/Ctrl-D ourselves.
+	editor := NewLineEditor("$ ")
 
 	for {
-		userInput, err := rl.Readline()
-		if err == readline.ErrInterrupt { // Ctrl-C: drop the line, new prompt
-			continue
-		} else if err == io.EOF { // Ctrl-D
+		userInput, err := editor.ReadLine()
+		if err == ErrInterrupt || err == io.EOF { // Ctrl-C or Ctrl-D: exit the shell
+			break
+		}
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
 			break
 		}
 

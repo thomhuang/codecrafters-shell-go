@@ -1,6 +1,9 @@
 package main
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // autoCompleteTrie holds every completable command name (builtins plus PATH
 // executables), built once at startup.
@@ -17,38 +20,27 @@ func buildCompletionTrie() *Trie {
 	return t
 }
 
-type commandAutoComplete struct {
-	trie *Trie
+// completions returns every command name starting with prefix, sorted.
+func completions(prefix string) []string {
+	matches := autoCompleteTrie.wordsWithPrefix(prefix)
+	sort.Strings(matches)
+	return matches
 }
 
-// "interface" method for readline's AutoCompleter
-// This is called with the current input and cursor position, and expects a list of possible suffixes to complete the current word
-// along with the length of the already-typed prefix.
-// We only autocomplete the first word (the command), so if the cursor is past the first space, we return no completions.
-func (c *commandAutoComplete) Do(line []rune, pos int) ([][]rune, int) {
-	// Find the start of the word under the cursor.
-	start := pos
-	for start > 0 && line[start-1] != ' ' {
-		start--
+// longestCommonPrefix returns the longest string that is a prefix of every
+// input. Command names are ASCII, so byte-wise comparison is fine.
+func longestCommonPrefix(strs []string) string {
+	if len(strs) == 0 {
+		return ""
 	}
-
-	// if start != 0, then we were presented with args ... so we don't do any command autocompletion
-	if start != 0 {
-		return nil, 0
-	}
-
-	// start will be 0! so the prefix is just the first word up to the cursor position
-	prefix := string(line[start:pos])
-	matches := c.trie.wordsWithPrefix(prefix)
-	sort.Strings(matches)
-
-	suffixes := make([][]rune, 0, len(matches))
-	for _, m := range matches {
-		suffix := m[len(prefix):] // strip the already-typed prefix
-		if len(matches) == 1 {
-			suffix += " " // exact single completion → trailing space for additional args :P
+	prefix := strs[0]
+	for _, s := range strs[1:] {
+		for !strings.HasPrefix(s, prefix) {
+			prefix = prefix[:len(prefix)-1]
+			if prefix == "" {
+				return ""
+			}
 		}
-		suffixes = append(suffixes, []rune(suffix))
 	}
-	return suffixes, len([]rune(prefix))
+	return prefix
 }
