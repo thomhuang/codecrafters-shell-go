@@ -82,11 +82,17 @@ func (e *LineEditor) ReadLine() (string, error) {
 				line, tabCount = e.autocompleteCommand(line, tabCount)
 			} else {
 				// Autocomplete for arguments (files atm): complete the last field.
-				var matchingArgument []rune
 				parts := strings.Split(string(line), " ")
 				last := len(parts) - 1
-				matchingArgument = e.autocompleteArgument([]rune(parts[last]))
-				parts[last] = string(matchingArgument)
+
+				if strings.Contains(parts[last], "/") { // autocomplete for paths
+					idx := strings.LastIndex(parts[last], "/")
+					dir := parts[last][:idx]
+					pathPrefix := parts[last][idx+1:]
+					parts[last] = e.autocompletePath(dir, pathPrefix)
+				} else {
+					parts[last] = string(e.autocompleteArgument([]rune(parts[last])))
+				}
 
 				line = []rune(strings.Join(parts, " "))
 			}
@@ -166,6 +172,22 @@ func (e *LineEditor) autocompleteArgument(line []rune) []rune {
 	completed := matches[0] + " "
 	e.write(completed[len(prefix):])
 	return []rune(completed)
+}
+
+// autocompletePath completes the final segment of a slash-containing argument
+// against the entries of dir. Like autocompleteArgument it writes only the
+// delta beyond prefix to the terminal (the line is never fully re-rendered) and
+// returns the full new value for the field, re-adding the "/" separator.
+func (e *LineEditor) autocompletePath(dir, prefix string) string {
+	matches := getPathMatches(dir, prefix)
+	if len(matches) == 0 {
+		e.bell()
+		return dir + "/" + prefix // unchanged
+	}
+
+	completed := matches[0] + " " // unique match → trailing space for args
+	e.write(completed[len(prefix):])
+	return dir + "/" + completed
 }
 
 // consumeEscape discards an escape sequence (e.g. an arrow key) using only the

@@ -59,6 +59,29 @@ func getCwdMatches(prefix string) []string {
 	return matches
 }
 
+// For a given provided path and (potentially) partial prefix,
+// getPathMatches returns every entry in the directory at path that starts with prefix, sorted. It is used for autocompleting paths like "foo/b" → "foo/bar"
+func getPathMatches(path, prefix string) []string {
+	t := newTrie()
+
+	currDir, err := os.ReadDir("./" + path)
+	if err != nil {
+		return []string{}
+	}
+
+	for _, file := range currDir {
+		if file.IsDir() { // will deal with nested directories in a future iteration, for now just autocomplete top-level entries in the cwd
+			continue
+		}
+
+		t.insert(file.Name())
+	}
+
+	matches := t.wordsWithPrefix(prefix)
+	sort.Strings(matches)
+	return matches
+}
+
 // longestCommonPrefix returns the longest string that is a prefix of every
 // input. Command names are ASCII, so byte-wise comparison is fine.
 func longestCommonPrefix(strs []string) string {
