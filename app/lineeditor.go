@@ -122,6 +122,7 @@ func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int
 	case 0:
 		// No matches: ring the bell, reprint the prompt, and clear the line.
 		e.bell()
+		e.write("\r\n")
 		e.write(e.prompt)
 		return nil, 0
 
