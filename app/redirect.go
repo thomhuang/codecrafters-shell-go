@@ -28,6 +28,7 @@ var redirectOps = map[string]redirectSpec{
 	"2>>": {os.O_CREATE | os.O_WRONLY | os.O_APPEND, STDERR}, // stderr redirection (append)
 }
 
+// TODO: Incorporate as part of lineeditor's parsing logic, rather than handling separately in main loop
 // extractRedirects separates redirect operators (and their targets) from the
 // command arguments, opening the target file for the last redirect of each
 // stream. The remaining (non-redirect) args are returned alongside.

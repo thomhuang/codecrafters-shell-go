@@ -1,2 +1,3 @@
 # Compiled shell binary (root-anchored so it won't match the app/ source dir)
 /app.exe
+/CLAUDE.md

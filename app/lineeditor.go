@@ -42,7 +42,6 @@ func (e *LineEditor) ReadLine() (string, error) {
 
 	var line []rune
 	tabCount := 0 // consecutive tabs with no completion progress
-
 	for {
 		r, _, err := e.in.ReadRune()
 		if err != nil {
@@ -72,11 +71,25 @@ func (e *LineEditor) ReadLine() (string, error) {
 			if len(line) > 0 {
 				line = line[:len(line)-1]
 				e.write("\b \b") // erase the last rune
+			} else {
+				e.bell() // nothing to delete
 			}
 			tabCount = 0
 
 		case r == '\t': // tab autocomplete
-			line, tabCount = e.complete(line, tabCount)
+			if !strings.Contains(string(line), " ") {
+				// Autocomplete for commands (the first word)
+				line, tabCount = e.autocompleteCommand(line, tabCount)
+			} else {
+				// Autocomplete for arguments (files atm): complete the last field.
+				var matchingArgument []rune
+				parts := strings.Split(string(line), " ")
+				last := len(parts) - 1
+				matchingArgument = e.autocompleteArgument([]rune(parts[last]))
+				parts[last] = string(matchingArgument)
+
+				line = []rune(strings.Join(parts, " "))
+			}
 
 		case r == 27: // ESC: swallow arrow keys etc. so they don't corrupt the line
 			e.consumeEscape()
@@ -89,11 +102,11 @@ func (e *LineEditor) ReadLine() (string, error) {
 	}
 }
 
-// complete handles a Tab press. It mirrors bash: extend to the longest common
+// autocompleteCommand handles a Tab press. It mirrors bash: extend to the longest common
 // prefix when that makes progress, ring the bell when it can't, and list all
 // candidates on the second consecutive bell. Returns the (possibly extended)
 // line and the new consecutive-tab count.
-func (e *LineEditor) complete(line []rune, tabCount int) ([]rune, int) {
+func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int) {
 	prefix := string(line)
 
 	// We only complete the command (the first word). Once there's a space,
@@ -103,12 +116,11 @@ func (e *LineEditor) complete(line []rune, tabCount int) ([]rune, int) {
 		return line, 0
 	}
 
-	matches := completions(prefix)
+	matches := getCmdMatches(prefix)
 
 	switch len(matches) {
 	case 0:
-		// No matches: discard the input and start fresh on a new line.
-		e.write("\r\n")
+		// No matches: ring the bell, reprint the prompt, and clear the line.
 		e.bell()
 		e.write(e.prompt)
 		return nil, 0
@@ -133,6 +145,26 @@ func (e *LineEditor) complete(line []rune, tabCount int) ([]rune, int) {
 		e.write(e.prompt + prefix)
 		return line, 0
 	}
+}
+
+// autocompleteArgument handles a Tab press for arguments (files). It mirrors bash: extend to the longest common
+// prefix when that makes progress, ring the bell when it can't
+func (e *LineEditor) autocompleteArgument(line []rune) []rune {
+	prefix := string(line)
+	if prefix == "" {
+		e.bell()
+		return line
+	}
+
+	matches := getCwdMatches(prefix)
+	if len(matches) == 0 {
+		e.bell()
+		return line
+	}
+
+	completed := matches[0] + " "
+	e.write(completed[len(prefix):])
+	return []rune(completed)
 }
 
 // consumeEscape discards an escape sequence (e.g. an arrow key) using only the

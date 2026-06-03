@@ -1,16 +1,22 @@
 package main
 
 import (
+	"os"
 	"sort"
 	"strings"
 )
 
-// autoCompleteTrie holds every completable command name (builtins plus PATH
+// cmdAutoCompleteTrie holds every completable command name (builtins plus PATH
 // executables), built once at startup.
-var autoCompleteTrie *Trie
+var cmdAutoCompleteTrie *Trie
 
-func buildCompletionTrie() *Trie {
+// cwdAutoCompleteTrie holds the names of the files in the current directory,
+// rebuilt by cdCommand whenever the working directory changes.
+var cwdAutoCompleteTrie *Trie
+
+func buildCmdCompletionTrie() *Trie {
 	t := newTrie()
+
 	for name := range builtins {
 		t.insert(name)
 	}
@@ -20,9 +26,35 @@ func buildCompletionTrie() *Trie {
 	return t
 }
 
-// completions returns every command name starting with prefix, sorted.
-func completions(prefix string) []string {
-	matches := autoCompleteTrie.wordsWithPrefix(prefix)
+func buildCwdCompletionTrie() *Trie {
+	t := newTrie()
+
+	currPath, _ := os.Getwd()
+	currDir, _ := os.ReadDir(currPath)
+
+	for _, file := range currDir {
+		if file.IsDir() { // will deal with nested directories in a future iteration, for now just autocomplete top-level entries in the cwd
+			continue
+		}
+
+		t.insert(file.Name())
+	}
+
+	return t
+}
+
+// getCmdMatches returns every command name starting with prefix, sorted.
+func getCmdMatches(prefix string) []string {
+	matches := cmdAutoCompleteTrie.wordsWithPrefix(prefix)
+	sort.Strings(matches)
+	return matches
+}
+
+// getCwdMatches returns every cwd entry starting with prefix, sorted. It reads
+// the cached cwdAutoCompleteTrie (built at startup, rebuilt by cdCommand) rather
+// than re-scanning the directory on every Tab.
+func getCwdMatches(prefix string) []string {
+	matches := cwdAutoCompleteTrie.wordsWithPrefix(prefix)
 	sort.Strings(matches)
 	return matches
 }
