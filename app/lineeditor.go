@@ -169,9 +169,52 @@ func (e *LineEditor) autocompleteArgument(line []rune) []rune {
 		return line
 	}
 
-	completed := matches[0] + " "
-	e.write(completed[len(prefix):])
-	return []rune(completed)
+	// Deduplicate: a directory appears as both "name" and "name/" in the
+	// trie. Collapse to unique names, preferring the "/" form for dirs.
+	uniq := dedupMatches(matches)
+	if len(uniq) == 0 {
+		e.bell()
+		return line
+	}
+
+	if len(uniq) == 1 {
+		completed := uniq[0]
+		suffix := " "
+		if strings.HasSuffix(completed, "/") {
+			suffix = ""
+		}
+		e.write(completed[len(prefix):] + suffix)
+		return []rune(completed + suffix)
+	}
+
+	// Multiple matches: extend to longest common prefix if possible.
+	if lcp := longestCommonPrefix(uniq); len(lcp) > len(prefix) {
+		e.write(lcp[len(prefix):])
+		return []rune(lcp)
+	}
+
+	e.bell()
+	return line
+}
+
+// dedupMatches collapses a sorted list of trie matches so that a directory
+// represented as both "foo" and "foo/" yields only "foo/".
+func dedupMatches(matches []string) []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, m := range matches {
+		base := strings.TrimSuffix(m, "/")
+		if seen[base] {
+			continue
+		}
+		seen[base] = true
+		if strings.HasSuffix(m, "/") {
+			result = append(result, m)
+		} else {
+			result = append(result, m)
+		}
+	}
+	return result
 }
 
 // autocompletePath completes the final segment of a slash-containing argument

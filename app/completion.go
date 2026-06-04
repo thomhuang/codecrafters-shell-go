@@ -33,7 +33,8 @@ func buildCwdCompletionTrie() *Trie {
 	currDir, _ := os.ReadDir(currPath)
 
 	for _, file := range currDir {
-		if file.IsDir() { // will deal with nested directories in a future iteration, for now just autocomplete top-level entries in the cwd
+		if file.IsDir() {
+			t.insert(file.Name() + "/")
 			continue
 		}
 
