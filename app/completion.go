@@ -71,7 +71,7 @@ func getPathMatches(path, prefix string) []string {
 	}
 
 	for _, file := range currDir {
-		if file.IsDir() { // will deal with nested directories in a future iteration, for now just autocomplete top-level entries in the cwd
+		if file.IsDir() {
 			continue
 		}
 
