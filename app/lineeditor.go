@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"golang.org/x/term"
@@ -173,25 +174,41 @@ func (e *LineEditor) autocompleteArgument(line []rune) []rune {
 		return line
 	}
 
-	matches := cwdDirTrie.getMatches(prefix)
+	matches := cwdFileTrie.getMatches(prefix)
+	matches = append(matches, cwdDirTrie.getMatches(prefix)...)
+	sort.Strings(matches)
 	if len(matches) == 0 {
 		e.bell()
 		return line
 	}
 
-	completed := matches[0] + "/"
+	completed := matches[0]
+	info, err := os.Stat(completed)
+	if err == nil && info.IsDir() {
+		completed += "/"
+	} else {
+		completed += " "
+	}
 	e.write(completed[len(prefix):])
 	return []rune(completed)
 }
 
 func (e *LineEditor) autocompleteDir(prefix string) string {
-	matches := cwdDirTrie.getMatches(prefix)
+	matches := cwdFileTrie.getMatches(prefix)
+	matches = append(matches, cwdDirTrie.getMatches(prefix)...)
+	sort.Strings(matches)
 	if len(matches) == 0 {
 		e.bell()
 		return prefix // unchanged
 	}
 
-	completed := matches[0] + "/"
+	completed := matches[0]
+	info, err := os.Stat(completed)
+	if err == nil && info.IsDir() {
+		completed += "/"
+	} else {
+		completed += " "
+	}
 	e.write(completed[len(prefix):])
 	return completed
 }
@@ -201,13 +218,19 @@ func (e *LineEditor) autocompleteDir(prefix string) string {
 // delta beyond prefix to the terminal (the line is never fully re-rendered) and
 // returns the full new value for the field, re-adding the "/" separator.
 func (e *LineEditor) autocompletePath(dir, prefix string) string {
-	matches := getPathMatches(dir, prefix, true)
+	matches := getPathMatches(dir, prefix, false)
 	if len(matches) == 0 {
 		e.bell()
 		return dir + "/" + prefix // unchanged
 	}
 
-	completed := matches[0] + "/"
+	completed := matches[0]
+	info, err := os.Stat(dir + "/" + matches[0])
+	if err == nil && info.IsDir() {
+		completed += "/"
+	} else {
+		completed += " "
+	}
 	e.write(completed[len(prefix):])
 	return dir + "/" + completed
 }
