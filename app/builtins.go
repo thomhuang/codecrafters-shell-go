@@ -55,6 +55,6 @@ func cdCommand(args []string) (output, errorMessage string) {
 		return "", fmt.Sprintf("cd: %s: No such file or directory", path)
 	}
 
-	cwdAutoCompleteTrie = buildCwdCompletionTrie() // rebuild cwd autocomplete trie since cwd has changed
+	buildCwdTries() // rebuild cwd autocomplete trie since cwd has changed
 	return "", ""
 }

@@ -85,12 +85,22 @@ func (e *LineEditor) ReadLine() (string, error) {
 				parts := strings.Split(string(line), " ")
 				last := len(parts) - 1
 
-				if strings.Contains(parts[last], "/") { // autocomplete for paths
+				switch {
+				case parts[last] == "":
+					parts[last] = e.autocompleteDir("")
+				case strings.Contains(parts[last], "/"): // autocomplete for paths
 					idx := strings.LastIndex(parts[last], "/")
 					dir := parts[last][:idx]
 					pathPrefix := parts[last][idx+1:]
+					if dir == "" {
+						if strings.HasPrefix(parts[last], "/") {
+							dir = "/"
+						} else {
+							dir = "."
+						}
+					}
 					parts[last] = e.autocompletePath(dir, pathPrefix)
-				} else {
+				default:
 					parts[last] = string(e.autocompleteArgument([]rune(parts[last])))
 				}
 
@@ -122,7 +132,7 @@ func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int
 		return line, 0
 	}
 
-	matches := getCmdMatches(prefix)
+	matches := cmdTrie.getCmdMatches(prefix)
 
 	switch len(matches) {
 	case 0:
@@ -163,58 +173,27 @@ func (e *LineEditor) autocompleteArgument(line []rune) []rune {
 		return line
 	}
 
-	matches := getCwdMatches(prefix)
+	matches := cwdDirTrie.getMatches(prefix)
 	if len(matches) == 0 {
 		e.bell()
 		return line
 	}
 
-	// Deduplicate: a directory appears as both "name" and "name/" in the
-	// trie. Collapse to unique names, preferring the "/" form for dirs.
-	uniq := dedupMatches(matches)
-	if len(uniq) == 0 {
-		e.bell()
-		return line
-	}
-
-	if len(uniq) == 1 {
-		completed := uniq[0]
-		suffix := " "
-		if strings.HasSuffix(completed, "/") {
-			suffix = ""
-		}
-		e.write(completed[len(prefix):] + suffix)
-		return []rune(completed + suffix)
-	}
-
-	// Multiple matches: extend to longest common prefix if possible.
-	if lcp := longestCommonPrefix(uniq); len(lcp) > len(prefix) {
-		e.write(lcp[len(prefix):])
-		return []rune(lcp)
-	}
-
-	e.bell()
-	return line
+	completed := matches[0] + "/"
+	e.write(completed[len(prefix):])
+	return []rune(completed)
 }
 
-// dedupMatches collapses a sorted list of trie matches so that a directory
-// represented as both "foo" and "foo/" yields only "foo/".
-func dedupMatches(matches []string) []string {
-	seen := make(map[string]bool)
-	var result []string
-	for _, m := range matches {
-		base := strings.TrimSuffix(m, "/")
-		if seen[base] {
-			continue
-		}
-		seen[base] = true
-		if strings.HasSuffix(m, "/") {
-			result = append(result, m)
-		} else {
-			result = append(result, m)
-		}
+func (e *LineEditor) autocompleteDir(prefix string) string {
+	matches := cwdDirTrie.getMatches(prefix)
+	if len(matches) == 0 {
+		e.bell()
+		return prefix // unchanged
 	}
-	return result
+
+	completed := matches[0] + "/"
+	e.write(completed[len(prefix):])
+	return completed
 }
 
 // autocompletePath completes the final segment of a slash-containing argument
@@ -222,13 +201,13 @@ func dedupMatches(matches []string) []string {
 // delta beyond prefix to the terminal (the line is never fully re-rendered) and
 // returns the full new value for the field, re-adding the "/" separator.
 func (e *LineEditor) autocompletePath(dir, prefix string) string {
-	matches := getPathMatches(dir, prefix)
+	matches := getPathMatches(dir, prefix, true)
 	if len(matches) == 0 {
 		e.bell()
 		return dir + "/" + prefix // unchanged
 	}
 
-	completed := matches[0] + " " // unique match → trailing space for args
+	completed := matches[0] + "/"
 	e.write(completed[len(prefix):])
 	return dir + "/" + completed
 }

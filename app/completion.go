@@ -6,15 +6,18 @@ import (
 	"strings"
 )
 
-// cmdAutoCompleteTrie holds every completable command name (builtins plus PATH
+// cmdTrie holds every completable command name (builtins plus PATH
 // executables), built once at startup.
-var cmdAutoCompleteTrie *Trie
+var cmdTrie *Trie
 
-// cwdAutoCompleteTrie holds the names of the files in the current directory,
+// cwdFileTrie holds the names of the files in the current directory,
 // rebuilt by cdCommand whenever the working directory changes.
-var cwdAutoCompleteTrie *Trie
+var cwdFileTrie *Trie
 
-func buildCmdCompletionTrie() *Trie {
+// same as above but for directories
+var cwdDirTrie *Trie
+
+func buildCmdCompletionTrie() {
 	t := newTrie()
 
 	for name := range builtins {
@@ -23,61 +26,39 @@ func buildCmdCompletionTrie() *Trie {
 	for name := range pathExecutables {
 		t.insert(name)
 	}
-	return t
+
+	cmdTrie = t
 }
 
-func buildCwdCompletionTrie() *Trie {
-	t := newTrie()
+func buildCwdTries() {
+	fileTrie, dirTrie := newTrie(), newTrie()
 
 	currPath, _ := os.Getwd()
 	currDir, _ := os.ReadDir(currPath)
 
-	for _, file := range currDir {
-		if file.IsDir() {
-			t.insert(file.Name() + "/")
+	for _, entity := range currDir {
+		if entity.IsDir() {
+			dirTrie.insert(entity.Name())
 			continue
 		}
 
-		t.insert(file.Name())
+		fileTrie.insert(entity.Name())
 	}
 
-	return t
+	cwdFileTrie, cwdDirTrie = fileTrie, dirTrie
 }
 
 // getCmdMatches returns every command name starting with prefix, sorted.
-func getCmdMatches(prefix string) []string {
-	matches := cmdAutoCompleteTrie.wordsWithPrefix(prefix)
+func (t *Trie) getCmdMatches(prefix string) []string {
+	matches := t.wordsWithPrefix(prefix)
 	sort.Strings(matches)
 	return matches
 }
 
-// getCwdMatches returns every cwd entry starting with prefix, sorted. It reads
+// getMatches returns every cwd entry starting with prefix, sorted. It reads
 // the cached cwdAutoCompleteTrie (built at startup, rebuilt by cdCommand) rather
 // than re-scanning the directory on every Tab.
-func getCwdMatches(prefix string) []string {
-	matches := cwdAutoCompleteTrie.wordsWithPrefix(prefix)
-	sort.Strings(matches)
-	return matches
-}
-
-// For a given provided path and (potentially) partial prefix,
-// getPathMatches returns every entry in the directory at path that starts with prefix, sorted. It is used for autocompleting paths like "foo/b" → "foo/bar"
-func getPathMatches(path, prefix string) []string {
-	t := newTrie()
-
-	currDir, err := os.ReadDir("./" + path)
-	if err != nil {
-		return []string{}
-	}
-
-	for _, file := range currDir {
-		if file.IsDir() {
-			continue
-		}
-
-		t.insert(file.Name())
-	}
-
+func (t *Trie) getMatches(prefix string) []string {
 	matches := t.wordsWithPrefix(prefix)
 	sort.Strings(matches)
 	return matches
@@ -99,4 +80,26 @@ func longestCommonPrefix(strs []string) string {
 		}
 	}
 	return prefix
+}
+
+// getPathMatches returns every entry in dir that starts with prefix.
+// If dirsOnly is true, only directories are returned.
+func getPathMatches(dir, prefix string, dirsOnly bool) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var matches []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if dirsOnly && !entry.IsDir() {
+			continue
+		}
+		matches = append(matches, name)
+	}
+	sort.Strings(matches)
+	return matches
 }

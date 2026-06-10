@@ -10,8 +10,8 @@ import (
 
 func main() {
 	pathExecutables = getPathExecutables(os.Getenv("PATH"))
-	cmdAutoCompleteTrie = buildCmdCompletionTrie()
-	cwdAutoCompleteTrie = buildCwdCompletionTrie()
+	buildCmdCompletionTrie()
+	buildCwdTries()
 
 	// Our own raw-mode line editor (replaces the readline package): it reads
 	// input one key at a time so we can handle tab-completion, backspace, and
