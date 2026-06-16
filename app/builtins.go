@@ -67,6 +67,9 @@ func completeCommand(args []string) (output, errorMessage string) {
 		} else {
 			return "", fmt.Sprintf("complete: %s: no completion specification", args[1])
 		}
+	case "-C":
+		completionPath, cmd := args[1], args[2]
+		executables[cmd] = completionPath
 	}
 
 	return "", ""
