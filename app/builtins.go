@@ -65,7 +65,7 @@ func completeCommand(args []string) (output, errorMessage string) {
 		if _, exists := executables[args[1]]; exists {
 			return fmt.Sprintf("complete -C '%s' %s", executables[args[1]], args[1]), ""
 		} else {
-			return "", fmt.Sprintf("complete: %s: no complete specification", args[1])
+			return "", fmt.Sprintf("complete: %s: no completion specification", args[1])
 		}
 	}
 
