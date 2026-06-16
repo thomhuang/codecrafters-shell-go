@@ -11,11 +11,12 @@ const HOME_PATH = "~"
 // builtins is the current set of commands  handled by the shell itself rather than
 // by an external executable.
 var builtins = map[string]bool{
-	"exit": true,
-	"echo": true,
-	"type": true,
-	"pwd":  true,
-	"cd":   true,
+	"exit":     true,
+	"echo":     true,
+	"type":     true,
+	"pwd":      true,
+	"cd":       true,
+	"complete": true,
 }
 
 func echoCommand(args []string) (output, errorMessage string) {
