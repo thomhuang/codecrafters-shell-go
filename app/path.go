@@ -8,10 +8,6 @@ import (
 	"strings"
 )
 
-// pathExecutables maps an executable's command name to its full path on disk,
-// built once at startup from the PATH environment variable.
-var pathExecutables map[string]string
-
 func getPathExecutables(path string) map[string]string {
 	pathExecutables := make(map[string]string)
 

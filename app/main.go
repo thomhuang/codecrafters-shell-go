@@ -8,8 +8,12 @@ import (
 	"strings"
 )
 
+// executables maps an executable's command name to its full path on disk,
+// built once at startup from the PATH environment variable.
+var executables map[string]string
+
 func main() {
-	pathExecutables = getPathExecutables(os.Getenv("PATH"))
+	executables = getPathExecutables(os.Getenv("PATH"))
 	buildCmdCompletionTrie()
 
 	// Our own raw-mode line editor (replaces the readline package): it reads
@@ -65,8 +69,11 @@ func main() {
 		case "cd":
 			output, errMsg := cdCommand(args)
 			printResult(stdout, stderr, output, errMsg)
+		case "complete":
+			output, errMsg := completeCommand(args)
+			printResult(stdout, stderr, output, errMsg)
 		default:
-			if _, exists := pathExecutables[cmd]; exists {
+			if _, exists := executables[cmd]; exists {
 				c := exec.Command(cmd, args...)
 				c.Stdout = stdout
 				c.Stderr = stderr

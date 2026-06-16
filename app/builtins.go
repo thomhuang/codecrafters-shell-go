@@ -28,7 +28,7 @@ func typeCommand(args []string) (output, errorMessage string) {
 
 	if _, exists := builtins[arg]; exists {
 		return fmt.Sprintf("%s is a shell builtin", arg), ""
-	} else if path, exists := pathExecutables[arg]; exists {
+	} else if path, exists := executables[arg]; exists {
 		return fmt.Sprintf("%s is %s", arg, path), ""
 	} else {
 		return "", fmt.Sprintf("%s: not found", arg)
@@ -54,6 +54,19 @@ func cdCommand(args []string) (output, errorMessage string) {
 	err := os.Chdir(path)
 	if err != nil {
 		return "", fmt.Sprintf("cd: %s: No such file or directory", path)
+	}
+
+	return "", ""
+}
+
+func completeCommand(args []string) (output, errorMessage string) {
+	switch args[0] {
+	case "-p":
+		if _, exists := executables[args[1]]; exists {
+			return fmt.Sprintf("complete -C '%s' %s", executables[args[1]], args[1]), ""
+		} else {
+			return "", fmt.Sprintf("complete: %s: no complete specification", args[1])
+		}
 	}
 
 	return "", ""

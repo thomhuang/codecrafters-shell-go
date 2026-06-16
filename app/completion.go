@@ -16,7 +16,7 @@ func buildCmdCompletionTrie() {
 	for name := range builtins {
 		t.insert(name)
 	}
-	for name := range pathExecutables {
+	for name := range executables {
 		t.insert(name)
 	}
 
