@@ -11,7 +11,6 @@ import (
 func main() {
 	pathExecutables = getPathExecutables(os.Getenv("PATH"))
 	buildCmdCompletionTrie()
-	buildCwdTries()
 
 	// Our own raw-mode line editor (replaces the readline package): it reads
 	// input one key at a time so we can handle tab-completion, backspace, and
@@ -64,10 +63,8 @@ func main() {
 			output, errMsg := pwdCommand()
 			printResult(stdout, stderr, output, errMsg)
 		case "cd":
-			_, errMsg := cdCommand(args)
-			if errMsg != "" {
-				printResult(stdout, stderr, "", errMsg)
-			}
+			output, errMsg := cdCommand(args)
+			printResult(stdout, stderr, output, errMsg)
 		default:
 			if _, exists := pathExecutables[cmd]; exists {
 				c := exec.Command(cmd, args...)

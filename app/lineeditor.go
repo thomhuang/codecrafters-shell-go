@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"sort"
 	"strings"
 
 	"golang.org/x/term"
@@ -79,33 +78,11 @@ func (e *LineEditor) ReadLine() (string, error) {
 
 		case r == '\t': // tab autocomplete
 			if !strings.Contains(string(line), " ") {
-				// Autocomplete for commands (the first word)
+				// Autocomplete for commands (the first word).
 				line, tabCount = e.autocompleteCommand(line, tabCount)
 			} else {
-				// Autocomplete for arguments (files atm): complete the last field.
-				parts := strings.Split(string(line), " ")
-				last := len(parts) - 1
-
-				switch {
-				case parts[last] == "":
-					parts[last] = e.autocompleteDir("")
-				case strings.Contains(parts[last], "/"): // autocomplete for paths
-					idx := strings.LastIndex(parts[last], "/")
-					dir := parts[last][:idx]
-					pathPrefix := parts[last][idx+1:]
-					if dir == "" {
-						if strings.HasPrefix(parts[last], "/") {
-							dir = "/"
-						} else {
-							dir = "."
-						}
-					}
-					parts[last] = e.autocompletePath(dir, pathPrefix)
-				default:
-					parts[last] = string(e.autocompleteArgument([]rune(parts[last])))
-				}
-
-				line = []rune(strings.Join(parts, " "))
+				// Autocomplete for arguments: complete the last field as a path.
+				line, tabCount = e.autocompleteArgument(line, tabCount)
 			}
 
 		case r == 27: // ESC: swallow arrow keys etc. so they don't corrupt the line
@@ -133,7 +110,7 @@ func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int
 		return line, 0
 	}
 
-	matches := cmdTrie.getCmdMatches(prefix)
+	matches := cmdTrie.getMatches(prefix)
 
 	switch len(matches) {
 	case 0:
@@ -165,74 +142,71 @@ func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int
 	}
 }
 
-// autocompleteArgument handles a Tab press for arguments (files). It mirrors bash: extend to the longest common
-// prefix when that makes progress, ring the bell when it can't
-func (e *LineEditor) autocompleteArgument(line []rune) []rune {
-	prefix := string(line)
-	if prefix == "" {
-		e.bell()
-		return line
-	}
+// Same as above but for directories
+func (e *LineEditor) autocompleteArgument(line []rune, tabCount int) ([]rune, int) {
+	parts := strings.Split(string(line), " ")
+	last := len(parts) - 1
+	field := parts[last]
 
-	matches := cwdFileTrie.getMatches(prefix)
-	matches = append(matches, cwdDirTrie.getMatches(prefix)...)
-	sort.Strings(matches)
-	if len(matches) == 0 {
-		e.bell()
-		return line
-	}
-
-	completed := matches[0]
-	info, err := os.Stat(completed)
-	if err == nil && info.IsDir() {
-		completed += "/"
+	var dirDisplay, statDir, prefix string
+	if i := strings.LastIndex(field, "/"); i >= 0 { // check if the user is trying to complete a path within a directory
+		dirDisplay = field[:i+1] // what's shown on the line
+		prefix = field[i+1:]     // the partial name to complete within that directory
+		statDir = field[:i]      // the directory to stat for completion
+		if statDir == "" {
+			statDir = "/" // leading slash: read the filesystem root
+		}
 	} else {
-		completed += " "
+		prefix = field
+		statDir = "."
 	}
-	e.write(completed[len(prefix):])
-	return []rune(completed)
-}
 
-func (e *LineEditor) autocompleteDir(prefix string) string {
-	matches := cwdFileTrie.getMatches(prefix)
-	matches = append(matches, cwdDirTrie.getMatches(prefix)...)
-	sort.Strings(matches)
-	if len(matches) == 0 {
+	matches := getPathMatches(statDir, prefix, false)
+
+	switch len(matches) {
+	case 0:
+		// No matches: bell, but leave the line intact (unlike command
+		// completion, clearing a half-typed argument would be hostile).
 		e.bell()
-		return prefix // unchanged
-	}
+		return line, 0
 
-	completed := matches[0]
-	info, err := os.Stat(completed)
-	if err == nil && info.IsDir() {
-		completed += "/"
-	} else {
-		completed += " "
-	}
-	e.write(completed[len(prefix):])
-	return completed
-}
+	case 1:
+		// A directory gets a trailing "/" so you can tab into it; anything else
+		// gets a space to end the field. isDir follows symlinks, matching bash.
+		suffix := " "
+		if isDir(dirDisplay + matches[0]) {
+			suffix = "/"
+		}
+		autocompleted := matches[0] + suffix
 
-// autocompletePath completes the final segment of a slash-containing argument
-// against the entries of dir. Like autocompleteArgument it writes only the
-// delta beyond prefix to the terminal (the line is never fully re-rendered) and
-// returns the full new value for the field, re-adding the "/" separator.
-func (e *LineEditor) autocompletePath(dir, prefix string) string {
-	matches := getPathMatches(dir, prefix, false)
-	if len(matches) == 0 {
-		e.bell()
-		return dir + "/" + prefix // unchanged
-	}
+		e.write(autocompleted[len(prefix):])
+		parts[last] = dirDisplay + autocompleted
+		return []rune(strings.Join(parts, " ")), 0
 
-	completed := matches[0]
-	info, err := os.Stat(dir + "/" + matches[0])
-	if err == nil && info.IsDir() {
-		completed += "/"
-	} else {
-		completed += " "
+	default:
+		// All matches share at least `prefix`; extend to their common prefix.
+		if lcp := longestCommonPrefix(matches); len(lcp) > len(prefix) {
+			e.write(lcp[len(prefix):])
+			parts[last] = dirDisplay + lcp
+			return []rune(strings.Join(parts, " ")), 0
+		}
+		// No further common prefix: bell once, list on the next tab.
+		if tabCount == 0 {
+			e.bell()
+			return line, 1
+		}
+		// List the candidates, marking directories with a trailing "/".
+		labels := make([]string, len(matches))
+		for i, name := range matches {
+			labels[i] = name
+			if isDir(dirDisplay + name) {
+				labels[i] += "/"
+			}
+		}
+		e.write("\r\n" + strings.Join(labels, "  ") + "\r\n")
+		e.write(e.prompt + string(line))
+		return line, 0
 	}
-	e.write(completed[len(prefix):])
-	return dir + "/" + completed
 }
 
 // consumeEscape discards an escape sequence (e.g. an arrow key) using only the

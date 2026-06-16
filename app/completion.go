@@ -10,13 +10,6 @@ import (
 // executables), built once at startup.
 var cmdTrie *Trie
 
-// cwdFileTrie holds the names of the files in the current directory,
-// rebuilt by cdCommand whenever the working directory changes.
-var cwdFileTrie *Trie
-
-// same as above but for directories
-var cwdDirTrie *Trie
-
 func buildCmdCompletionTrie() {
 	t := newTrie()
 
@@ -30,34 +23,9 @@ func buildCmdCompletionTrie() {
 	cmdTrie = t
 }
 
-func buildCwdTries() {
-	fileTrie, dirTrie := newTrie(), newTrie()
-
-	currPath, _ := os.Getwd()
-	currDir, _ := os.ReadDir(currPath)
-
-	for _, entity := range currDir {
-		if entity.IsDir() {
-			dirTrie.insert(entity.Name())
-			continue
-		}
-
-		fileTrie.insert(entity.Name())
-	}
-
-	cwdFileTrie, cwdDirTrie = fileTrie, dirTrie
-}
-
-// getCmdMatches returns every command name starting with prefix, sorted.
-func (t *Trie) getCmdMatches(prefix string) []string {
-	matches := t.wordsWithPrefix(prefix)
-	sort.Strings(matches)
-	return matches
-}
-
-// getMatches returns every cwd entry starting with prefix, sorted. It reads
-// the cached cwdAutoCompleteTrie (built at startup, rebuilt by cdCommand) rather
-// than re-scanning the directory on every Tab.
+// getMatches returns every word in the trie that starts with prefix, sorted. It
+// reads the cached trie (built at startup; the cwd tries are rebuilt by
+// cdCommand) rather than re-scanning on every Tab.
 func (t *Trie) getMatches(prefix string) []string {
 	matches := t.wordsWithPrefix(prefix)
 	sort.Strings(matches)
@@ -80,6 +48,12 @@ func longestCommonPrefix(strs []string) string {
 		}
 	}
 	return prefix
+}
+
+// isDir reports whether path exists and is a directory, following symlinks.
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // getPathMatches returns every entry in dir that starts with prefix.
