@@ -115,16 +115,22 @@ func (e *LineEditor) autocompleteArgument(line []rune, tabCount int) ([]rune, in
 			return []rune(strings.Join(parts, " ")), 0
 		}
 
+		// No further common prefix: bell once, list the candidates on the next tab.
 		if tabCount == 0 {
-			// No further common prefix: bell once, take the first match on the
-			// next tab.
 			e.bell()
 			return line, 1
 		}
-		// Can't extend any further — the candidates diverge on the first rune
-		// past the prefix. Rather than ringing the bell, just take the first
-		// match.
-		return e.completeArgumentField(matches[0], parts, dirDisplay, prefix), 0
+		// List the candidates, marking directories with a trailing "/".
+		labels := make([]string, len(matches))
+		for i, name := range matches {
+			labels[i] = name
+			if isDir(dirDisplay + name) {
+				labels[i] += "/"
+			}
+		}
+		e.write("\r\n" + strings.Join(labels, "  ") + "\r\n")
+		e.write(e.prompt + string(line))
+		return line, 0
 	}
 }
 
