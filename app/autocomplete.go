@@ -172,9 +172,12 @@ func (e *LineEditor) startCycle(line []rune, parts []string) []rune {
 		stem += " "
 	}
 
-	e.cycle = &dirCycle{matches: matches, index: 0, stem: stem}
+	if len(matches) > 1 {
+		e.cycle = &dirCycle{matches: matches, index: 0, stem: stem}
+	}
+
 	e.write(matches[0] + "/")
-	return []rune(e.cycle.currentLine())
+	return []rune(stem + matches[0] + "/")
 }
 
 // advanceCycle erases the directory shown by the previous Tab and writes the
