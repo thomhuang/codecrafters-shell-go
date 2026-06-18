@@ -1,7 +1,9 @@
 package main
 
 import (
+	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -203,6 +205,10 @@ func (e *LineEditor) autocompleteCompleterScript(line []rune, scriptPath string,
 	}
 
 	cmd := exec.Command(scriptPath, parts[0], curr, prev)
+	cmd.Env = append(os.Environ(),
+		"COMP_LINE="+string(line),
+		"COMP_POINT="+strconv.Itoa(len(line)),
+	)
 	output, err := cmd.Output()
 	if err != nil {
 		e.bell()
