@@ -5,6 +5,14 @@ import (
 	"strings"
 )
 
+var completerScripts = make(map[string]string)
+
+type dirCycle struct {
+	matches []string // cwd directories
+	index   int      // current directory in matches
+	stem    string   // line preceding the directories
+}
+
 // autocompleteCommand handles a Tab press. It mirrors bash: extend to the longest common
 // prefix when that makes progress, ring the bell when it can't, and list all
 // candidates on the second consecutive bell. Returns the (possibly extended)
@@ -51,9 +59,24 @@ func (e *LineEditor) autocompleteCommand(line []rune, tabCount int) ([]rune, int
 	}
 }
 
-// Same as above but for directories
+// autocompleteArgument completes the last field of the line as a filesystem
+// path. When that field is empty (an empty argument) it instead cycles through
+// the directories in the relevant directory: the first Tab shows the first
+// directory, and each consecutive Tab walks to the next, wrapping at the end.
 func (e *LineEditor) autocompleteArgument(line []rune, tabCount int) ([]rune, int) {
+	if e.cycle != nil && string(line) == e.cycle.currentLine() {
+		return e.advanceCycle(), 0
+	}
+	e.cycle = nil
+
 	parts := strings.Fields(string(line))
+
+	// A trailing space means the user wants to complete a fresh, empty argument:
+	// cycle through the cwd's directories rather than completing a prefix.
+	if len(line) > 0 && line[len(line)-1] == ' ' {
+		return e.startCycle(line, parts), 0
+	}
+
 	last := len(parts) - 1
 	field := parts[last]
 
@@ -80,47 +103,85 @@ func (e *LineEditor) autocompleteArgument(line []rune, tabCount int) ([]rune, in
 		return line, 0
 
 	case 1:
-		// A directory gets a trailing "/" so you can tab into it; anything else
-		// gets a space to end the field. isDir follows symlinks, matching bash.
-		suffix := " "
-		if isDir(dirDisplay + matches[0]) {
-			suffix = "/"
-		}
-		autocompleted := matches[0] + suffix
-
-		e.write(autocompleted[len(prefix):])
-		parts[last] = dirDisplay + autocompleted
-		return []rune(strings.Join(parts, " ")), 0
+		// Unique match: fill it in directly.
+		return e.completeArgumentField(matches[0], parts, dirDisplay, prefix), 0
 
 	default:
-		// All matches share at least `prefix`; extend to their common prefix.
+		// All matches share at least `prefix`; extend to their common prefix
+		// when that makes progress.
 		if lcp := longestCommonPrefix(matches); len(lcp) > len(prefix) {
 			e.write(lcp[len(prefix):])
 			parts[last] = dirDisplay + lcp
 			return []rune(strings.Join(parts, " ")), 0
 		}
-		// No further common prefix: bell once, list on the next tab.
+
 		if tabCount == 0 {
+			// No further common prefix: bell once, take the first match on the
+			// next tab.
 			e.bell()
 			return line, 1
 		}
-		// List the candidates, marking directories with a trailing "/".
-		labels := make([]string, len(matches))
-		for i, name := range matches {
-			labels[i] = name
-			if isDir(dirDisplay + name) {
-				labels[i] += "/"
-			}
-		}
-		e.write("\r\n" + strings.Join(labels, "  ") + "\r\n")
-		e.write(e.prompt + string(line))
-		return line, 0
+		// Can't extend any further — the candidates diverge on the first rune
+		// past the prefix. Rather than ringing the bell, just take the first
+		// match.
+		return e.completeArgumentField(matches[0], parts, dirDisplay, prefix), 0
 	}
 }
 
-var completers = make(map[string]string)
+// completeArgumentField writes the completion for match into the last field and
+// returns the rebuilt line. A directory gets a trailing "/" so you can tab into
+// it; anything else gets a space to end the field (isDir follows symlinks,
+// matching bash). match is assumed to start with prefix — getPathMatches
+// filters by it — so only the portion past prefix is written to the terminal.
+func (e *LineEditor) completeArgumentField(match string, parts []string, currDir, prefix string) []rune {
+	suffix := " "
+	if isDir(currDir + match) {
+		suffix = "/"
+	}
 
-func (e *LineEditor) autocompleteCompleter(line []rune, scriptPath string, tabCount int) ([]rune, int) {
+	autocompleted := match + suffix
+	e.write(autocompleted[len(prefix):]) // only write the autocompleted portion
+	parts[len(parts)-1] = currDir + autocompleted
+
+	return []rune(strings.Join(parts, " "))
+}
+
+// currentLine is the exact line the most recent Tab produced: the stem followed
+// by the currently displayed directory and a trailing "/".
+func (c *dirCycle) currentLine() string {
+	return c.stem + c.matches[c.index] + "/"
+}
+
+func (e *LineEditor) startCycle(line []rune, parts []string) []rune {
+	matches := getPathMatches(".", "", true) // cwd directories only
+	if len(matches) == 0 {
+		e.bell()
+		return line
+	}
+
+	// The cycled directory name is appended after the line, preserving the
+	// trailing space the user typed.
+	stem := strings.Join(parts, " ")
+	if len(parts) > 0 {
+		stem += " "
+	}
+
+	e.cycle = &dirCycle{matches: matches, index: 0, stem: stem}
+	e.write(matches[0] + "/")
+	return []rune(e.cycle.currentLine())
+}
+
+// advanceCycle erases the directory shown by the previous Tab and writes the
+// next one, wrapping at the end of the list.
+func (e *LineEditor) advanceCycle() []rune {
+	c := e.cycle
+	e.eraseRunes(len([]rune(c.matches[c.index])) + 1) // +1 for the trailing "/"
+	c.index = (c.index + 1) % len(c.matches)
+	e.write(c.matches[c.index] + "/")
+	return []rune(c.currentLine())
+}
+
+func (e *LineEditor) autocompleteCompleterScript(line []rune, scriptPath string, tabCount int) ([]rune, int) {
 	parts := strings.Fields(string(line))
 	argLength := len(parts) - 1
 	var curr, prev string

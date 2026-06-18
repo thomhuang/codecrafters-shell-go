@@ -18,6 +18,7 @@ type LineEditor struct {
 	in     *bufio.Reader
 	out    io.Writer
 	prompt string
+	cycle  *dirCycle // tab-cycling for directory autocomplete
 }
 
 func NewLineEditor(prompt string) *LineEditor {
@@ -42,6 +43,7 @@ func (e *LineEditor) ReadLine() (string, error) {
 
 	var line []rune
 	tabCount := 0 // consecutive tabs with no completion progress
+	e.cycle = nil // no directory cycle carries over from a previous line
 	for {
 		r, _, err := e.in.ReadRune()
 		if err != nil {
@@ -70,19 +72,21 @@ func (e *LineEditor) ReadLine() (string, error) {
 		case r == 127 || r == 8: // Backspace / DEL
 			if len(line) > 0 {
 				line = line[:len(line)-1]
-				e.write("\b \b") // erase the last rune
+				e.eraseRunes(1) // erase the last rune
 			} else {
 				e.bell() // nothing to delete
 			}
 			tabCount = 0
+			e.cycle = nil // editing cancels a directory cycle
 
 		case r == '\t': // tab autocomplete
-			if !strings.Contains(string(line), " ") {
+			cmd, _, hasSpace := strings.Cut(string(line), " ")
+			if !hasSpace {
 				// Autocomplete for commands (the first word).
 				line, tabCount = e.autocompleteCommand(line, tabCount)
-			} else if scriptPath, exists := completers[strings.Split(string(line), " ")[0]]; len(strings.Split(string(line), " ")[0]) > 0 && exists {
+			} else if scriptPath, exists := completerScripts[cmd]; cmd != "" && exists {
 				// Autocomplete for commands with custom completers.
-				line, tabCount = e.autocompleteCompleter(line, scriptPath, tabCount)
+				line, tabCount = e.autocompleteCompleterScript(line, scriptPath, tabCount)
 			} else {
 				// Autocomplete for arguments: complete the last field as a path.
 				line, tabCount = e.autocompleteArgument(line, tabCount)
@@ -95,6 +99,7 @@ func (e *LineEditor) ReadLine() (string, error) {
 			line = append(line, r)
 			e.write(string(r))
 			tabCount = 0
+			e.cycle = nil // editing cancels a directory cycle
 		}
 	}
 }
@@ -131,3 +136,7 @@ func (e *LineEditor) readLineCooked() (string, error) {
 
 func (e *LineEditor) write(s string) { io.WriteString(e.out, s) }
 func (e *LineEditor) bell()          { e.write("\a") }
+
+func (e *LineEditor) eraseRunes(n int) {
+	e.write(strings.Repeat("\b \b", n))
+}

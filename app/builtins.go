@@ -62,8 +62,8 @@ func cdCommand(args []string) (output, errorMessage string) {
 func completeCommand(args []string) (output, errorMessage string) {
 	switch args[0] {
 	case "-p":
-		if _, exists := completers[args[1]]; exists {
-			return fmt.Sprintf("complete -C '%s' %s", completers[args[1]], args[1]), ""
+		if _, exists := completerScripts[args[1]]; exists {
+			return fmt.Sprintf("complete -C '%s' %s", completerScripts[args[1]], args[1]), ""
 		} else {
 			return "", fmt.Sprintf("complete: %s: no completion specification", args[1])
 		}
@@ -72,7 +72,7 @@ func completeCommand(args []string) (output, errorMessage string) {
 			return "", "complete: usage: complete -C <command> <name>"
 		}
 		completionPath, cmd := args[1], args[2]
-		completers[cmd] = completionPath
+		completerScripts[cmd] = completionPath
 	}
 
 	return "", ""
