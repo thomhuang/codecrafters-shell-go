@@ -73,6 +73,8 @@ func completeCommand(args []string) (output, errorMessage string) {
 		}
 		completionPath, cmd := args[1], args[2]
 		completerScripts[cmd] = completionPath
+	case "-r":
+		delete(completerScripts, args[1])
 	}
 
 	return "", ""
